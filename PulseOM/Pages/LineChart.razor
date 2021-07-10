@@ -1,0 +1,40 @@
+﻿@page "/line-chart"
+@attribute [Authorize]
+@using PulseOM.Data
+@inject PulseDataService _pulseDataService
+@using System.Timers
+@implements IDisposable
+
+<div class="row">
+    <div class="col-md-6 col-sm-12 p-4">
+        <label>Smooth <RadzenCheckBox @bind-Value="@_smooth" Name="smooth"></RadzenCheckBox></label>
+        <RadzenChart>
+            <RadzenLineSeries Smooth="@_smooth" Data="@_pulseDataService.Data" CategoryProperty="Time" Title="Heart Beat" ValueProperty="HearBeat">
+                <RadzenMarkers MarkerType="MarkerType.Circle" />
+            </RadzenLineSeries>
+            <RadzenLineSeries Smooth="@_smooth" Data="@_pulseDataService.Data" CategoryProperty="Time" Title="Oxygen" ValueProperty="Oxygen">
+                <RadzenMarkers MarkerType="MarkerType.Diamond" />
+            </RadzenLineSeries>
+            <RadzenCategoryAxis Padding="20" FormatString="{0:hh:mm:ss.FFF}" />
+        </RadzenChart>
+    </div>
+</div>
+
+@code {
+    bool _smooth = true;
+    private Timer _timer;
+
+    protected override void OnInitialized()
+    {
+        _timer = new Timer(1000);
+        _timer.Elapsed += (_, _) => OnTimerCallback();
+        _timer.Start();
+    }
+    
+    private void OnTimerCallback()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+    
+    public void Dispose() => _timer?.Dispose();
+}
