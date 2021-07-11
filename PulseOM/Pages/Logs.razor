@@ -1,2 +1,36 @@
 ﻿@page "/logs"
 @attribute [Authorize]
+@using PulseOM.Data
+@using Microsoft.AspNetCore.Identity
+@inject ApplicationDbContext _dbContext
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject UserManager<IdentityUser> _userManager;
+
+<RadzenDataGrid AllowFiltering="true" AllowColumnResize="true" 
+                FilterMode="FilterMode.Advanced" 
+                PageSize="100" AllowPaging="true" 
+                AllowSorting="true" 
+                Data="@_pulseData" 
+                TItem="PulseDataItem" 
+                ColumnWidth="300px" 
+                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                LogicalFilterOperator="LogicalFilterOperator.Or">
+    <Columns>
+        <RadzenDataGridColumn TItem="PulseDataItem" Property="Time" Title="Time" TextAlign="TextAlign.Center" />
+        <RadzenDataGridColumn TItem="PulseDataItem" Property="HeartBeat" Title="Heart Beat" TextAlign="TextAlign.Center" />
+        <RadzenDataGridColumn TItem="PulseDataItem" Property="Oxygen" Title="Oxygen (SPO2)" TextAlign="TextAlign.Center" />
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    IEnumerable<PulseDataItem>? _pulseData;
+
+    protected override void OnInitialized()
+    {
+        var userClaims = _authenticationStateProvider.GetAuthenticationStateAsync().Result.User;
+        var user = _userManager.GetUserId(userClaims);
+        
+        _pulseData = _dbContext.PulseData
+            .Where(p => p.IdentityUserId != null && p.IdentityUserId == user);
+    }
+}

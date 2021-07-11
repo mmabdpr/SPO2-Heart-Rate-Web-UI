@@ -32,16 +32,14 @@ namespace PulseOM.Data
             {
                 if (_user is null) return _hbData;
 
-                using (var scope = _scopeFactory.CreateScope())
-                {
-                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                    _hbData = db.PulseData
-                        .Where(x => x.IdentityUserId != null && x.IdentityUserId.Equals(_user.Id))
-                        .OrderByDescending(x => x.Time)
-                        .Take(100)
-                        .ToList();
-                }
+                _hbData = db.PulseData
+                    .Where(x => x.IdentityUserId != null && x.IdentityUserId.Equals(_user.Id))
+                    .OrderByDescending(x => x.Time)
+                    .Take(100)
+                    .ToList();
 
                 return _hbData;
             }
@@ -67,21 +65,18 @@ namespace PulseOM.Data
                 var msg = Encoding.UTF8.GetString(received)
                     .Split(',').Select(long.Parse).ToArray();
 
-                using (var scope = _scopeFactory.CreateScope())
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                db.PulseData.Add(new PulseDataItem
                 {
-                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    Time = DateTimeOffset.FromUnixTimeMilliseconds(msg[0] * 100 + 1_609_459_200_000).DateTime.ToLocalTime(),
+                    HeartBeat = msg[1],
+                    Oxygen = msg[2],
+                    IdentityUserId = _user?.Id
+                });
 
-                    db.PulseData.Add(new PulseDataItem
-                    {
-                        //TODO from 1609459200
-                        Time = DateTimeOffset.FromUnixTimeMilliseconds(msg[0]).DateTime.ToLocalTime(),
-                        HeartBeat = msg[1],
-                        Oxygen = msg[2],
-                        IdentityUserId = _user?.Id
-                    });
-
-                    db.SaveChanges();
-                }
+                db.SaveChanges();
             }
             catch (Exception e)
             {

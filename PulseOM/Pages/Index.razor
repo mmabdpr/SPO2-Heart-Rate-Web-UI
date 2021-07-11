@@ -41,7 +41,6 @@
 
 <div class="row">
     <div class="col-md-12 col-sm-12 p-4">
-        @* <label>Smooth <RadzenCheckBox @bind-Value="@_smooth" Name="smooth"></RadzenCheckBox></label> *@
         <RadzenChart>
             <RadzenLineSeries Smooth="@_smooth" Data="@_data" CategoryProperty="Time" Title="Heart Beat" ValueProperty="HeartBeat">
                 <RadzenMarkers MarkerType="MarkerType.Circle"/>
@@ -59,7 +58,7 @@
         <RadzenLabel Text=@($"Heart Beat: {_heartBeatRange.First()} - {_heartBeatRange.Last()}")></RadzenLabel>
     </div>
     <div class="col-md-6 col-sm-6 p-4">
-        <RadzenSlider Style="width: 100%" Min="80" Max="120" Range="true" @bind-Value="_heartBeatRange" TValue="IEnumerable<int>" Change="@(r => { _heartBeatRange = r; })"/>
+        <RadzenSlider Style="width: 100%" Min="0" Max="200" Range="true" @bind-Value="_heartBeatRange" TValue="IEnumerable<int>" Change="@(r => { _heartBeatRange = r; })"/>
     </div>
     <div class="col-md-2 col-sm-6 p-4">
         @if (_healthAlert.HeartAlert)
@@ -74,7 +73,7 @@
         <RadzenLabel Text=@($"Oxygen: {_oxygenRange.First()} - {_oxygenRange.Last()}")></RadzenLabel>
     </div>
     <div class="col-md-6 col-sm-6 p-4">
-        <RadzenSlider Style="width: 100%" Min="80" Max="120" Range="true" @bind-Value="@_oxygenRange" TValue="IEnumerable<int>" Change="@(r => { _oxygenRange = r; })"/>
+        <RadzenSlider Style="width: 100%" Min="0" Max="100" Range="true" @bind-Value="@_oxygenRange" TValue="IEnumerable<int>" Change="@(r => { _oxygenRange = r; })"/>
     </div>
     <div class="col-md-2 col-sm-6 p-4">
         @if (_healthAlert.OxygenAlert)
@@ -83,10 +82,6 @@
         }
     </div>
 </div>
-
-
-
-
 
 @if (_fetchingData && (_healthAlert.HeartAlert || _healthAlert.OxygenAlert))
 {
@@ -100,8 +95,8 @@
     private bool _fetchingData;
     private Timer? _timer;
     private (bool HeartAlert, bool OxygenAlert) _healthAlert;
-    private (int HeartBeat, int Oxygen) _avgHealth = (100, 100);
-    private IEnumerable<int> _heartBeatRange = new[] {90, 100}; //TODO change
+    private (int HeartBeat, int Oxygen) _avgHealth = (80, 95);
+    private IEnumerable<int> _heartBeatRange = new[] {60, 120};
     private IEnumerable<int> _oxygenRange = new[] {90, 100};
     private IEnumerable<PulseDataItem> _data = new List<PulseDataItem>();
 
