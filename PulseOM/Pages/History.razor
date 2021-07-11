@@ -1,0 +1,17 @@
+@page "/History"
+@using Microsoft.AspNetCore.Identity
+@using PulseOM.Data
+@attribute [Authorize]
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject UserManager<IdentityUser> _userManager;
+@inject ApplicationDbContext _dbContext
+
+@code {
+
+    protected override Task OnInitializedAsync()
+    {
+    // var last
+        return base.OnInitializedAsync();
+    }
+
+}

@@ -1,34 +1,62 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PulseOM.Data
 {
-    [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
-    [SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
-    public class DataItem
+    public class PulseDataService : IDisposable
     {
-        public DateTime Time { get; set; }
-        public long HearBeat { get; set; }
-        public long Oxygen { get; set; }
-    }
-    
-    public class PulseDataService: IDisposable
-    {
-        private UdpClient Client { get; }
-        private List<DataItem> _hbData = new();
-        public IEnumerable<DataItem> Data => _hbData;
-        
-        public PulseDataService()
+        private readonly IServiceScopeFactory _scopeFactory;
+        private IEnumerable<PulseDataItem> _hbData = new List<PulseDataItem>();
+        private IdentityUser? _user;
+
+
+        public PulseDataService(IServiceScopeFactory scopeFactory)
         {
+            _scopeFactory = scopeFactory;
+
             Client = new UdpClient(54251);
             Client.BeginReceive(OnReceive, null);
         }
-        
+
+        private UdpClient Client { get; }
+
+        public IEnumerable<PulseDataItem> Data
+        {
+            get
+            {
+                if (_user is null) return _hbData;
+
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                    _hbData = db.PulseData
+                        .Where(x => x.IdentityUserId != null && x.IdentityUserId.Equals(_user.Id))
+                        .OrderByDescending(x => x.Time)
+                        .Take(100)
+                        .ToList();
+                }
+
+                return _hbData;
+            }
+        }
+
+        public void Dispose()
+        {
+            Client.Dispose();
+        }
+
+        public void SetUser(IdentityUser? user)
+        {
+            _user = user;
+        }
+
         private void OnReceive(IAsyncResult res)
         {
             try
@@ -39,15 +67,21 @@ namespace PulseOM.Data
                 var msg = Encoding.UTF8.GetString(received)
                     .Split(',').Select(long.Parse).ToArray();
 
-                _hbData.Add(new DataItem
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    Time = DateTimeOffset.FromUnixTimeMilliseconds(msg[0]).DateTime.ToLocalTime(),
-                    HearBeat = msg[1],
-                    Oxygen = msg[2],
-                });
+                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                if (_hbData.Count > 10)
-                    _hbData = _hbData.Skip(_hbData.Count - 10).ToList();
+                    db.PulseData.Add(new PulseDataItem
+                    {
+                        //TODO from 1609459200
+                        Time = DateTimeOffset.FromUnixTimeMilliseconds(msg[0]).DateTime.ToLocalTime(),
+                        HeartBeat = msg[1],
+                        Oxygen = msg[2],
+                        IdentityUserId = _user?.Id
+                    });
+
+                    db.SaveChanges();
+                }
             }
             catch (Exception e)
             {
@@ -57,11 +91,6 @@ namespace PulseOM.Data
             {
                 Client.BeginReceive(OnReceive, null);
             }
-        }
-
-        public void Dispose()
-        {
-            Client?.Dispose();
         }
     }
 }

@@ -4,19 +4,29 @@
         <TargetFramework>net5.0</TargetFramework>
         <UserSecretsId>aspnet-PulseOM-D4C82CDD-58D5-456E-A9D8-93FE36EAA3CA</UserSecretsId>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
-        <None Update="app.db" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+<!--        <None Update="app.db" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />-->
+        <None Update="app.db" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="5.0.7" />
         <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="5.0.7" />
         <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="5.0.7" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="5.0.7">
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+          <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="5.0.7" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="5.0.7" />
         <PackageReference Include="Radzen.Blazor" Version="3.6.7" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="wwwroot\media" />
     </ItemGroup>
 
 </Project>

@@ -1,4 +1,151 @@
 ﻿@page "/"
+@attribute [Authorize]
+@using PulseOM.Data
+@using Microsoft.AspNetCore.Identity
+@using System.Timers
+@implements IDisposable
+@inject PulseDataService _pulseDataService
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject UserManager<IdentityUser> _userManager;
+<div class="row">
+    <div class="col-md-5 col-sm-12 p-4">
+        <RadzenArcGauge Style="width: 100%; height: 250px;">
+            <RadzenArcGaugeScale Step="20" Min="0" Max="200" MinorStep="2" Radius="1.5" TickPosition="@GaugeTickPosition.Outside" Y="0.9" Margin="0">
+                <RadzenArcGaugeScaleValue Value="@_avgHealth.HeartBeat" ShowValue="@true">
+                    <Template Context="pointer">
+                        <h4>
+                            @pointer.Value <sup>bpm</sup>
+                        </h4>
+                    </Template>
+                </RadzenArcGaugeScaleValue>
+            </RadzenArcGaugeScale>
+        </RadzenArcGauge>
+    </div>
+    <div class="col-md-2 col-sm-6 p-4 justify-content-center d-flex">
+        <RadzenButton class="align-self-center" Text=@(_fetchingData ? "Stop" : "Start") Click="@(() => { _fetchingData = !_fetchingData; })"/>
+    </div>
+    <div class="col-md-5 col-sm-12 p-4">
+        <RadzenArcGauge Style="width: 100%; height: 250px;">
+            <RadzenArcGaugeScale Step="10" Min="0" Max="100" MinorStep="2" Radius="1.5" TickPosition="@GaugeTickPosition.Outside" Y="0.9" Margin="0">
+                <RadzenArcGaugeScaleValue Value="@_avgHealth.Oxygen" ShowValue="@true">
+                    <Template Context="pointer">
+                        <h4>
+                            @pointer.Value <sup>%</sup>
+                        </h4>
+                    </Template>
+                </RadzenArcGaugeScaleValue>
+            </RadzenArcGaugeScale>
+        </RadzenArcGauge>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12 col-sm-12 p-4">
+        @* <label>Smooth <RadzenCheckBox @bind-Value="@_smooth" Name="smooth"></RadzenCheckBox></label> *@
+        <RadzenChart>
+            <RadzenLineSeries Smooth="@_smooth" Data="@_data" CategoryProperty="Time" Title="Heart Beat" ValueProperty="HeartBeat">
+                <RadzenMarkers MarkerType="MarkerType.Circle"/>
+            </RadzenLineSeries>
+            <RadzenLineSeries Smooth="@_smooth" Data="@_data" CategoryProperty="Time" Title="Oxygen" ValueProperty="Oxygen">
+                <RadzenMarkers MarkerType="MarkerType.Diamond"/>
+            </RadzenLineSeries>
+            <RadzenCategoryAxis Padding="20" FormatString="{0:hh:mm:ss.FFF}"/>
+        </RadzenChart>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-2 col-sm-6 p-4">
+        <RadzenLabel Text=@($"Heart Beat: {_heartBeatRange.First()} - {_heartBeatRange.Last()}")></RadzenLabel>
+    </div>
+    <div class="col-md-6 col-sm-6 p-4">
+        <RadzenSlider Style="width: 100%" Min="80" Max="120" Range="true" @bind-Value="_heartBeatRange" TValue="IEnumerable<int>" Change="@(r => { _heartBeatRange = r; })"/>
+    </div>
+    <div class="col-md-2 col-sm-6 p-4">
+        @if (_healthAlert.HeartAlert)
+        {
+            <span class="oi oi-warning" aria-hidden="true"></span>
+        }
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-2 col-sm-6 p-4">
+        <RadzenLabel Text=@($"Oxygen: {_oxygenRange.First()} - {_oxygenRange.Last()}")></RadzenLabel>
+    </div>
+    <div class="col-md-6 col-sm-6 p-4">
+        <RadzenSlider Style="width: 100%" Min="80" Max="120" Range="true" @bind-Value="@_oxygenRange" TValue="IEnumerable<int>" Change="@(r => { _oxygenRange = r; })"/>
+    </div>
+    <div class="col-md-2 col-sm-6 p-4">
+        @if (_healthAlert.OxygenAlert)
+        {
+            <span class="oi oi-warning" aria-hidden="true"></span>
+        }
+    </div>
+</div>
 
 
 
+
+
+@if (_fetchingData && (_healthAlert.HeartAlert || _healthAlert.OxygenAlert))
+{
+    <audio autoplay loop>
+        <source src="media/alert.wav"/>
+    </audio>
+}
+
+@code {
+    private readonly bool _smooth = true;
+    private bool _fetchingData;
+    private Timer? _timer;
+    private (bool HeartAlert, bool OxygenAlert) _healthAlert;
+    private (int HeartBeat, int Oxygen) _avgHealth = (100, 100);
+    private IEnumerable<int> _heartBeatRange = new[] {90, 100}; //TODO change
+    private IEnumerable<int> _oxygenRange = new[] {90, 100};
+    private IEnumerable<PulseDataItem> _data = new List<PulseDataItem>();
+
+    private void OnTimerCallback()
+    {
+        if (!_fetchingData) return;
+
+        CheckForHealth();
+        UpdateData();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateData()
+    {
+        _data = _pulseDataService.Data.ToList();
+        if (_data.Any())
+            _avgHealth = ((int) _data.Average(x => x.HeartBeat), 
+                (int) _data.Average(x => x.Oxygen));
+    }
+
+    private void CheckForHealth()
+    {
+        _healthAlert.HeartAlert = _avgHealth.HeartBeat < _heartBeatRange.First()
+                                  || _avgHealth.HeartBeat > _heartBeatRange.Last();
+
+        _healthAlert.OxygenAlert = _avgHealth.Oxygen < _oxygenRange.First()
+                                   || _avgHealth.Oxygen > _oxygenRange.Last();
+    }
+
+    protected override void OnInitialized()
+    {
+        var userClaims = _authenticationStateProvider.GetAuthenticationStateAsync().Result.User;
+        var user = _userManager.GetUserAsync(userClaims).Result;
+        _pulseDataService.SetUser(user);
+
+        _timer = new Timer(1000);
+        _timer.Elapsed += (_, _) => OnTimerCallback();
+        _timer.Start();
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        _pulseDataService.SetUser(null);
+    }
+
+}
